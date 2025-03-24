@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using SJAH20250324.AppWebMVC.Models;
 
 namespace SJAH20250324.AppWebMVC.Controllers
 {
+    [Authorize]
     public class ProductController : Controller
     {
         private readonly Test20250324DbContext _context;
@@ -19,10 +21,30 @@ namespace SJAH20250324.AppWebMVC.Controllers
         }
 
         // GET: Product
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(Product producto, int topRegistro = 10)
         {
-            var test20250324DbContext = _context.Products.Include(p => p.Brand).Include(p => p.Warehouse);
-            return View(await test20250324DbContext.ToListAsync());
+            var query = _context.Products.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(producto.ProductName))
+                query = query.Where(s => s.ProductName.Contains(producto.ProductName));
+            if (!string.IsNullOrWhiteSpace(producto.Description))
+                query = query.Where(s => s.Description.Contains(producto.Description));
+            if (producto.BrandId > 0)
+                query = query.Where(s => s.BrandId == producto.BrandId);
+            if (producto.WarehouseId > 0)
+                query = query.Where(s => s.WarehouseId == producto.WarehouseId);
+            if (topRegistro > 0)
+                query = query.Take(topRegistro);
+            query = query
+                .Include(p => p.Warehouse).Include(p => p.Brand);
+
+            var marcas = _context.Brands.ToList();
+            marcas.Add(new Brand { BrandName = "SELECCIONAR", Id = 0 });
+            var categorias = _context.Warehouses.ToList();
+            categorias.Add(new Warehouse { WarehouseName = "SELECCIONAR", Id = 0 });
+            ViewData["CategoriaId"] = new SelectList(categorias, "Id", "Nombre", 0);
+            ViewData["MarcaId"] = new SelectList(marcas, "Id", "Nombre", 0);
+
+            return View(await query.ToListAsync());
         }
 
         // GET: Product/Details/5
